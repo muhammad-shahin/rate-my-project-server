@@ -60,6 +60,9 @@ async function run() {
 
     const database = client.db('RateMyProjectDB');
     const projectCollection = database.collection('projectCollection');
+    const submittedProjectCollection = database.collection(
+      'submittedProjectCollection'
+    );
 
     // post project data
     app.post('/projects', async (req, res) => {
@@ -115,6 +118,30 @@ async function run() {
         console.error(error);
         res.status(500).send('Internal Server Error');
       }
+    });
+
+    // post submitted project data
+    app.post('/submitted-projects', async (req, res) => {
+      const newSubmittedProjectData = req.body;
+      console.log(newSubmittedProjectData);
+      const result = await submittedProjectCollection.insertOne(
+        newSubmittedProjectData
+      );
+      res.send(result);
+    });
+    // get all submitted project data
+    app.get('/submitted-projects', async (req, res) => {
+      const cursor = submittedProjectCollection.find();
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+    // get submitted project data by user email
+    app.get('/submitted-projects/:userEmail', async (req, res) => {
+      const email = req.params.userEmail;
+      const query = { examineeEmail: email };
+      const cursor = submittedProjectCollection.find(query);
+      const result = await cursor.toArray();
+      res.send(result);
     });
 
     // generate token on authentication
