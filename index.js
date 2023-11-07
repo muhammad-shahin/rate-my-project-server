@@ -69,6 +69,40 @@ async function run() {
       res.send(result);
     });
 
+    // get all  project data
+    app.get('/projects', async (req, res) => {
+      const cursor = projectCollection.find();
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
+
+    // filter data
+    app.get('/projects/filter', async (req, res) => {
+      const difficultyFilter = req.query.difficulty;
+      const categoryFilter = req.query.category;
+    
+      // Build the query object
+      const query = {};
+    
+      if (difficultyFilter) {
+        query.difficultyLevel = { $in: difficultyFilter.split('&') };
+      }
+    
+      if (categoryFilter) {
+        query.category = { $in: categoryFilter.split('&') };
+      }
+    
+      try {
+        const result = await projectCollection.find(query).toArray();
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send('Internal Server Error');
+      }
+    });
+    
+
     // generate token on authentication
     app.post('/jwt', logger, async (req, res) => {
       const user = req.body;
