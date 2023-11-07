@@ -39,12 +39,10 @@ const logger = async (req, res, next) => {
   next();
 };
 
-
-
 app.get('/', (req, res) => {
   res.send('Assignment Data Will Add Soon');
 });
-const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.omvipub.mongodb.net/?retryWrites=true&w=majority`;
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ko1sj04.mongodb.net/?retryWrites=true&w=majority`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -59,6 +57,40 @@ async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();
+
+    const database = client.db('RateMyProjectDB');
+    const projectCollection = database.collection('projectCollection');
+
+    // post project data
+    app.post('/projects', async (req, res) => {
+      const newProjectData = req.body;
+      console.log(newProjectData);
+      const result = await projectCollection.insertOne(newProjectData);
+      res.send(result);
+    });
+
+    // generate token on authentication
+    app.post('/jwt', logger, async (req, res) => {
+      const user = req.body;
+      console.log('User uid : ', user);
+      const token = jwt.sign(user, process.env.TOKEN_SECRET, {
+        expiresIn: '1h',
+      });
+      console.log('New Token Generated: ', token);
+      res
+        .cookie('token', token, {
+          httpOnly: true,
+          secure: false,
+          sameSite: 'lax',
+        })
+        .send({ success: true });
+    });
+
+    // clear cookie on logout
+    app.post('/logout', async (req, res) => {
+      const user = req.body;
+      res.clearCookie('token', { maxAge: 0 }).send({ success: true });
+    });
 
     // Send a ping to confirm a successful connection
     await client.db('admin').command({ ping: 1 });
