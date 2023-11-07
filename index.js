@@ -76,23 +76,38 @@ async function run() {
       res.send(result);
     });
 
+    // get  project data by id
+    app.get('/project/:projectId', async (req, res) => {
+      const projectId = req.params.projectId;
+      const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(projectId);
+      if (!isValidObjectId) {
+        res.status(400).send('Invalid ObjectId');
+        return;
+      }
+      const query = {
+        _id: new ObjectId(projectId),
+      };
+      const result = await projectCollection.findOne(query);
+      res.send(result);
+    });
 
     // filter data
     app.get('/projects/filter', async (req, res) => {
       const difficultyFilter = req.query.difficulty;
       const categoryFilter = req.query.category;
-    
+      console.log(difficultyFilter, categoryFilter);
+
       // Build the query object
       const query = {};
-    
+
       if (difficultyFilter) {
         query.difficultyLevel = { $in: difficultyFilter.split('&') };
       }
-    
+
       if (categoryFilter) {
         query.category = { $in: categoryFilter.split('&') };
       }
-    
+
       try {
         const result = await projectCollection.find(query).toArray();
         res.send(result);
@@ -101,7 +116,6 @@ async function run() {
         res.status(500).send('Internal Server Error');
       }
     });
-    
 
     // generate token on authentication
     app.post('/jwt', logger, async (req, res) => {
