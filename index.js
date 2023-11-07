@@ -136,12 +136,26 @@ async function run() {
       res.send(result);
     });
     // get submitted project data by user email
-    app.get('/submitted-projects/:userEmail', async (req, res) => {
+    app.get('/my-submitted-projects/:userEmail', async (req, res) => {
       const email = req.params.userEmail;
       const query = { examineeEmail: email };
       const cursor = submittedProjectCollection.find(query);
       const result = await cursor.toArray();
       res.send(result);
+    });
+
+    // get submitted project data by user email and pending status
+    app.get('/pending-submit/:userEmail', async (req, res) => {
+      const email = req.params.userEmail;
+      const query = { creatorEmail: email };
+      try {
+        const cursor = submittedProjectCollection.find(query);
+        const result = await cursor.toArray();
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send('Internal Server Error');
+      }
     });
 
     // generate token on authentication
