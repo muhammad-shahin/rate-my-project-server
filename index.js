@@ -99,6 +99,15 @@ async function run() {
       res.send(result);
     });
 
+    // get created project data by specific user email
+    app.get('/my-created-project/:userEmail', async (req, res) => {
+      const email = req.params.userEmail;
+      const query = { creatorEmail: email };
+      const cursor = projectCollection.find(query);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
     // filter data
     app.get('/projects/filter', async (req, res) => {
       const difficultyFilter = req.query.difficulty;
@@ -149,7 +158,6 @@ async function run() {
       const result = await cursor.toArray();
       res.send(result);
     });
-
     // get submitted project data by user email and pending status
     app.get('/pending-submit/:userEmail', async (req, res) => {
       const email = req.params.userEmail;
@@ -164,6 +172,45 @@ async function run() {
       }
     });
 
+    // update marks for submitted projects
+    app.put('/projects/:projectId', async (req, res) => {
+      const id = req.params.projectId;
+      const filter = { _id: new ObjectId(id) };
+      const options = { upsert: true };
+      const updatedProject = req.body;
+      const project = {
+        $set: {
+          category: updatedProject.category,
+          creatorEmail: updatedProject.creatorEmail,
+          creatorName: updatedProject.creatorName,
+          creatorPhotoUrl: updatedProject.creatorPhotoUrl,
+          difficultyLevel: updatedProject.difficultyLevel,
+          dueDate: updatedProject.dueDate,
+          projectDescription: updatedProject.projectDescription,
+          projectThumbnail: updatedProject.projectThumbnail,
+          projectTitle: updatedProject.projectTitle,
+          requirements: updatedProject.requirements,
+          totalMarks: updatedProject.totalMarks,
+        },
+      };
+
+      try {
+        const result = await projectCollection.updateOne(
+          filter,
+          project,
+          options
+        );
+        if (result.matchedCount === 1) {
+          // Update project successfully
+          res.json(result);
+        } else {
+          res.status(404).send('Project not found');
+        }
+      } catch (error) {
+        console.error(error);
+        res.status(500).send('Internal server error');
+      }
+    });
     // update marks for submitted projects
     app.put('/pending-submit/:submittedId', async (req, res) => {
       const id = req.params.submittedId;
@@ -194,6 +241,13 @@ async function run() {
         console.error(error);
         res.status(500).send('Internal server error');
       }
+    });
+    // DELETE
+    app.delete('/projects/:projectId', async (req, res) => {
+      const id = req.params.projectId;
+      const query = { _id: new ObjectId(id) };
+      const result = await projectCollection.deleteOne(query);
+      res.send(result);
     });
 
     // generate token on authentication
