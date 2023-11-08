@@ -10,7 +10,7 @@ const port = process.env.port || 5000;
 // middleware
 app.use(
   cors({
-    origin: ['http://localhost:5173'],
+    origin: 'https://ratemy-project.web.app',
     credentials: true,
     methods: ['GET', 'POST', 'UPDATE', 'PUT', 'DELETE'],
   })
@@ -332,12 +332,11 @@ async function run() {
       const token = jwt.sign(user, process.env.TOKEN_SECRET, {
         expiresIn: '1h',
       });
-      console.log('New Token Generated: ', token);
       res
         .cookie('token', token, {
           httpOnly: true,
-          secure: false,
-          sameSite: 'lax',
+          secure: true,
+          sameSite: 'none',
         })
         .send({ success: true });
     });
