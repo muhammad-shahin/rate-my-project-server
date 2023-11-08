@@ -12,6 +12,7 @@ app.use(
   cors({
     origin: ['http://localhost:5173'],
     credentials: true,
+    methods: ['GET', 'POST', 'UPDATE', 'PUT', 'DELETE'],
   })
 );
 app.use(express.json());
@@ -37,6 +38,23 @@ const logger = async (req, res, next) => {
   });
 
   next();
+};
+
+// verify token middleware
+const verifyToken = (req, res, next) => {
+  const token = req?.cookies?.token;
+  console.log('Verify token found : ', token);
+  if (!token) {
+    return res.status(401).send({ message: 'unauthorized access' });
+  }
+  jwt.verify(token, process.env.TOKEN_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(401).send({ message: 'unauthorized access' });
+    }
+    console.log('decoded token : ', decoded);
+    req.user = decoded;
+    next();
+  });
 };
 
 app.get('/', (req, res) => {
@@ -65,7 +83,10 @@ async function run() {
     );
 
     // post project data
-    app.post('/projects', async (req, res) => {
+    app.post('/projects', logger, verifyToken, async (req, res) => {
+      if (req.query.userId !== req.user.userId) {
+        return res.status(403).send({ message: 'forbidden access' });
+      }
       const newProjectData = req.body;
       console.log(newProjectData);
       const result = await projectCollection.insertOne(newProjectData);
@@ -73,7 +94,7 @@ async function run() {
     });
 
     // get all  project data
-    app.get('/projects', async (req, res) => {
+    app.get('/projects', logger, async (req, res) => {
       const page = req.query.page;
       const pageNumber = parseInt(page);
       const itemPerPage = 6;
@@ -92,6 +113,9 @@ async function run() {
         res.status(400).send('Invalid ObjectId');
         return;
       }
+      if (req.query.userId !== req.user.userId) {
+        return res.status(403).send({ message: 'forbidden access' });
+      }
       const query = {
         _id: new ObjectId(projectId),
       };
@@ -100,19 +124,29 @@ async function run() {
     });
 
     // get created project data by specific user email
-    app.get('/my-created-project/:userEmail', async (req, res) => {
-      const email = req.params.userEmail;
-      const query = { creatorEmail: email };
-      const cursor = projectCollection.find(query);
-      const result = await cursor.toArray();
-      res.send(result);
-    });
+    app.get(
+      '/my-created-project/:userEmail',
+      logger,
+      verifyToken,
+      async (req, res) => {
+        const email = req.params.userEmail;
+        if (req.query.userId !== req.user.userId) {
+          return res.status(403).send({ message: 'forbidden access' });
+        }
+        const query = { creatorEmail: email };
+        const cursor = projectCollection.find(query);
+        const result = await cursor.toArray();
+        res.send(result);
+      }
+    );
 
     // filter data
-    app.get('/projects/filter', async (req, res) => {
+    app.get('/projects/filter', logger, verifyToken, async (req, res) => {
+      if (req.query.userId !== req.user.userId) {
+        return res.status(403).send({ message: 'forbidden access' });
+      }
       const difficultyFilter = req.query.difficulty;
       const categoryFilter = req.query.category;
-      console.log(difficultyFilter, categoryFilter);
 
       // Build the query object
       const query = {};
@@ -135,7 +169,11 @@ async function run() {
     });
 
     // post submitted project data
-    app.post('/submitted-projects', async (req, res) => {
+    app.post('/submitted-projects', logger, verifyToken, async (req, res) => {
+      if (req.query.userId !== req.user.userId) {
+        return res.status(403).send({ message: 'forbidden access' });
+      }
+
       const newSubmittedProjectData = req.body;
       console.log(newSubmittedProjectData);
       const result = await submittedProjectCollection.insertOne(
@@ -145,35 +183,56 @@ async function run() {
       res.send(result);
     });
     // get all submitted project data
-    app.get('/submitted-projects', async (req, res) => {
+    app.get('/submitted-projects', logger, verifyToken, async (req, res) => {
       const cursor = submittedProjectCollection.find();
       const result = await cursor.toArray();
       res.send(result);
     });
     // get submitted project data by user email
-    app.get('/my-submitted-projects/:userEmail', async (req, res) => {
-      const email = req.params.userEmail;
-      const query = { examineeEmail: email };
-      const cursor = submittedProjectCollection.find(query);
-      const result = await cursor.toArray();
-      res.send(result);
-    });
-    // get submitted project data by user email and pending status
-    app.get('/pending-submit/:userEmail', async (req, res) => {
-      const email = req.params.userEmail;
-      const query = { creatorEmail: email, approveStatus: 'Pending' };
-      try {
+    app.get(
+      '/my-submitted-projects/:userEmail',
+      logger,
+      verifyToken,
+      async (req, res) => {
+        if (req.query.userId !== req.user.userId) {
+          return res.status(403).send({ message: 'forbidden access' });
+        }
+
+        const email = req.params.userEmail;
+        const query = { examineeEmail: email };
         const cursor = submittedProjectCollection.find(query);
         const result = await cursor.toArray();
         res.send(result);
-      } catch (error) {
-        console.error(error);
-        res.status(500).send('Internal Server Error');
       }
-    });
+    );
+    // get submitted project data by user email and pending status
+    app.get(
+      '/pending-submit/:userEmail',
+      logger,
+      verifyToken,
+      async (req, res) => {
+        if (req.query.userId !== req.user.userId) {
+          return res.status(403).send({ message: 'forbidden access' });
+        }
+
+        const email = req.params.userEmail;
+        const query = { creatorEmail: email, approveStatus: 'Pending' };
+        try {
+          const cursor = submittedProjectCollection.find(query);
+          const result = await cursor.toArray();
+          res.send(result);
+        } catch (error) {
+          console.error(error);
+          res.status(500).send('Internal Server Error');
+        }
+      }
+    );
 
     // update marks for submitted projects
-    app.put('/projects/:projectId', async (req, res) => {
+    app.put('/projects/:projectId', logger, verifyToken, async (req, res) => {
+      if (req.query.userId !== req.user.userId) {
+        return res.status(403).send({ message: 'forbidden access' });
+      }
       const id = req.params.projectId;
       const filter = { _id: new ObjectId(id) };
       const options = { upsert: true };
@@ -212,48 +271,64 @@ async function run() {
       }
     });
     // update marks for submitted projects
-    app.put('/pending-submit/:submittedId', async (req, res) => {
-      const id = req.params.submittedId;
-      const filter = { _id: new ObjectId(id) };
-      const options = { upsert: true };
-      const updatedSubmittedProject = req.body;
-      const project = {
-        $set: {
-          givenMarks: updatedSubmittedProject.givenMarks,
-          feedback: updatedSubmittedProject.feedback,
-          approveStatus: 'Approved',
-        },
-      };
-
-      try {
-        const result = await submittedProjectCollection.updateOne(
-          filter,
-          project,
-          options
-        );
-        if (result.matchedCount === 1) {
-          // Update project successfully
-          res.json(result);
-        } else {
-          res.status(404).send('Project not found');
+    app.put(
+      '/pending-submit/:submittedId',
+      logger,
+      verifyToken,
+      async (req, res) => {
+        if (req.query.userId !== req.user.userId) {
+          return res.status(403).send({ message: 'forbidden access' });
         }
-      } catch (error) {
-        console.error(error);
-        res.status(500).send('Internal server error');
+        const id = req.params.submittedId;
+        const filter = { _id: new ObjectId(id) };
+        const options = { upsert: true };
+        const updatedSubmittedProject = req.body;
+        const project = {
+          $set: {
+            givenMarks: updatedSubmittedProject.givenMarks,
+            feedback: updatedSubmittedProject.feedback,
+            approveStatus: 'Approved',
+          },
+        };
+
+        try {
+          const result = await submittedProjectCollection.updateOne(
+            filter,
+            project,
+            options
+          );
+          if (result.matchedCount === 1) {
+            // Update project successfully
+            res.json(result);
+          } else {
+            res.status(404).send('Project not found');
+          }
+        } catch (error) {
+          console.error(error);
+          res.status(500).send('Internal server error');
+        }
       }
-    });
+    );
     // DELETE
-    app.delete('/projects/:projectId', async (req, res) => {
-      const id = req.params.projectId;
-      const query = { _id: new ObjectId(id) };
-      const result = await projectCollection.deleteOne(query);
-      res.send(result);
-    });
+    app.delete(
+      '/projects/:projectId',
+      logger,
+      verifyToken,
+      async (req, res) => {
+        if (req.query.userId !== req.user.userId) {
+          return res.status(403).send({ message: 'forbidden access' });
+        }
+        const id = req.params.projectId;
+        const query = { _id: new ObjectId(id) };
+        const result = await projectCollection.deleteOne(query);
+        res.send(result);
+      }
+    );
 
     // generate token on authentication
     app.post('/jwt', logger, async (req, res) => {
       const user = req.body;
-      console.log('User uid : ', user);
+      console.log('User email : ', user);
       const token = jwt.sign(user, process.env.TOKEN_SECRET, {
         expiresIn: '1h',
       });
