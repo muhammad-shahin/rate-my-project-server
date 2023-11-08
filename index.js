@@ -74,9 +74,14 @@ async function run() {
 
     // get all  project data
     app.get('/projects', async (req, res) => {
-      const cursor = projectCollection.find();
+      const page = req.query.page;
+      const pageNumber = parseInt(page);
+      const itemPerPage = 6;
+      const skip = pageNumber * itemPerPage;
+      const cursor = projectCollection.find().skip(skip).limit(itemPerPage);
       const result = await cursor.toArray();
-      res.send(result);
+      const totalCount = await projectCollection.countDocuments();
+      res.json({ result, totalCount });
     });
 
     // get  project data by id
@@ -127,6 +132,7 @@ async function run() {
       const result = await submittedProjectCollection.insertOne(
         newSubmittedProjectData
       );
+      console.log(result);
       res.send(result);
     });
     // get all submitted project data
@@ -147,7 +153,7 @@ async function run() {
     // get submitted project data by user email and pending status
     app.get('/pending-submit/:userEmail', async (req, res) => {
       const email = req.params.userEmail;
-      const query = { creatorEmail: email };
+      const query = { creatorEmail: email, approveStatus: 'Pending' };
       try {
         const cursor = submittedProjectCollection.find(query);
         const result = await cursor.toArray();
@@ -155,6 +161,38 @@ async function run() {
       } catch (error) {
         console.error(error);
         res.status(500).send('Internal Server Error');
+      }
+    });
+
+    // update marks for submitted projects
+    app.put('/pending-submit/:submittedId', async (req, res) => {
+      const id = req.params.submittedId;
+      const filter = { _id: new ObjectId(id) };
+      const options = { upsert: true };
+      const updatedSubmittedProject = req.body;
+      const project = {
+        $set: {
+          givenMarks: updatedSubmittedProject.givenMarks,
+          feedback: updatedSubmittedProject.feedback,
+          approveStatus: 'Approved',
+        },
+      };
+
+      try {
+        const result = await submittedProjectCollection.updateOne(
+          filter,
+          project,
+          options
+        );
+        if (result.matchedCount === 1) {
+          // Update project successfully
+          res.json(result);
+        } else {
+          res.status(404).send('Project not found');
+        }
+      } catch (error) {
+        console.error(error);
+        res.status(500).send('Internal server error');
       }
     });
 
