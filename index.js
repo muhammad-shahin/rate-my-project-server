@@ -83,10 +83,7 @@ async function run() {
     );
 
     // post project data
-    app.post('/projects', logger, verifyToken, async (req, res) => {
-      if (req.query.userId !== req.user.userId) {
-        return res.status(403).send({ message: 'forbidden access' });
-      }
+    app.post('/projects', async (req, res) => {
       const newProjectData = req.body;
       console.log(newProjectData);
       const result = await projectCollection.insertOne(newProjectData);
@@ -94,7 +91,7 @@ async function run() {
     });
 
     // get all  project data
-    app.get('/projects', logger, async (req, res) => {
+    app.get('/projects', async (req, res) => {
       const page = req.query.page;
       const pageNumber = parseInt(page);
       const itemPerPage = 6;
@@ -107,15 +104,10 @@ async function run() {
 
     // get  project data by id
     app.get('/project/:projectId', async (req, res) => {
+      // if (req.query.userId !== req.user.userId) {
+      //   return res.status(403).send({ message: 'forbidden access' });
+      // }
       const projectId = req.params.projectId;
-      const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(projectId);
-      if (!isValidObjectId) {
-        res.status(400).send('Invalid ObjectId');
-        return;
-      }
-      if (req.query.userId !== req.user.userId) {
-        return res.status(403).send({ message: 'forbidden access' });
-      }
       const query = {
         _id: new ObjectId(projectId),
       };
@@ -123,25 +115,38 @@ async function run() {
       res.send(result);
     });
 
-    // get created project data by specific user email
-    app.get(
-      '/my-created-project/:userEmail',
-      logger,
-      verifyToken,
-      async (req, res) => {
-        const email = req.params.userEmail;
-        if (req.query.userId !== req.user.userId) {
-          return res.status(403).send({ message: 'forbidden access' });
-        }
-        const query = { creatorEmail: email };
-        const cursor = projectCollection.find(query);
-        const result = await cursor.toArray();
-        res.send(result);
-      }
-    );
+    // old code
+    // app.get('/project/:projectId', async (req, res) => {
+    //   const projectId = req.params.projectId;
+    //   const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(projectId);
+    //   if (!isValidObjectId) {
+    //     res.status(400).send('Invalid ObjectId');
+    //     return;
+    //   }
+    //   if (req.query.userId !== req.user.userId) {
+    //     return res.status(403).send({ message: 'forbidden access' });
+    //   }
+    //   const query = {
+    //     _id: new ObjectId(projectId),
+    //   };
+    //   const result = await projectCollection.findOne(query);
+    //   res.send(result);
+    // });
 
-    // filter data
-    app.get('/projects/filter', logger, verifyToken, async (req, res) => {
+    // get created project data by specific user email
+    app.get('/my-created-project/:userEmail', verifyToken, async (req, res) => {
+      const email = req.params.userEmail;
+      if (req.query.userId !== req.user.userId) {
+        return res.status(403).send({ message: 'forbidden access' });
+      }
+      const query = { creatorEmail: email };
+      const cursor = projectCollection.find(query);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    // filter data by difficulty and category
+    app.get('/projects/filter', verifyToken, async (req, res) => {
       if (req.query.userId !== req.user.userId) {
         return res.status(403).send({ message: 'forbidden access' });
       }
@@ -169,10 +174,7 @@ async function run() {
     });
 
     // post submitted project data
-    app.post('/submitted-projects', logger, verifyToken, async (req, res) => {
-      if (req.query.userId !== req.user.userId) {
-        return res.status(403).send({ message: 'forbidden access' });
-      }
+    app.post('/submitted-projects', async (req, res) => {
 
       const newSubmittedProjectData = req.body;
       console.log(newSubmittedProjectData);
@@ -183,7 +185,7 @@ async function run() {
       res.send(result);
     });
     // get all submitted project data
-    app.get('/submitted-projects', logger, verifyToken, async (req, res) => {
+    app.get('/submitted-projects', verifyToken, async (req, res) => {
       const cursor = submittedProjectCollection.find();
       const result = await cursor.toArray();
       res.send(result);
@@ -229,7 +231,7 @@ async function run() {
     );
 
     // update marks for submitted projects
-    app.put('/projects/:projectId', logger, verifyToken, async (req, res) => {
+    app.put('/projects/:projectId', verifyToken, async (req, res) => {
       if (req.query.userId !== req.user.userId) {
         return res.status(403).send({ message: 'forbidden access' });
       }
@@ -271,66 +273,56 @@ async function run() {
       }
     });
     // update marks for submitted projects
-    app.put(
-      '/pending-submit/:submittedId',
-      logger,
-      verifyToken,
-      async (req, res) => {
-        if (req.query.userId !== req.user.userId) {
-          return res.status(403).send({ message: 'forbidden access' });
-        }
-        const id = req.params.submittedId;
-        const filter = { _id: new ObjectId(id) };
-        const options = { upsert: true };
-        const updatedSubmittedProject = req.body;
-        const project = {
-          $set: {
-            givenMarks: updatedSubmittedProject.givenMarks,
-            feedback: updatedSubmittedProject.feedback,
-            approveStatus: 'Approved',
-          },
-        };
+    app.put('/pending-submit/:submittedId', verifyToken, async (req, res) => {
+      if (req.query.userId !== req.user.userId) {
+        return res.status(403).send({ message: 'forbidden access' });
+      }
+      const id = req.params.submittedId;
+      const filter = { _id: new ObjectId(id) };
+      const options = { upsert: true };
+      const updatedSubmittedProject = req.body;
+      const project = {
+        $set: {
+          givenMarks: updatedSubmittedProject.givenMarks,
+          feedback: updatedSubmittedProject.feedback,
+          approveStatus: 'Approved',
+        },
+      };
 
-        try {
-          const result = await submittedProjectCollection.updateOne(
-            filter,
-            project,
-            options
-          );
-          if (result.matchedCount === 1) {
-            // Update project successfully
-            res.json(result);
-          } else {
-            res.status(404).send('Project not found');
-          }
-        } catch (error) {
-          console.error(error);
-          res.status(500).send('Internal server error');
+      try {
+        const result = await submittedProjectCollection.updateOne(
+          filter,
+          project,
+          options
+        );
+        if (result.matchedCount === 1) {
+          // Update project successfully
+          res.json(result);
+        } else {
+          res.status(404).send('Project not found');
         }
+      } catch (error) {
+        console.error(error);
+        res.status(500).send('Internal server error');
       }
-    );
+    });
     // DELETE
-    app.delete(
-      '/projects/:projectId',
-      logger,
-      verifyToken,
-      async (req, res) => {
-        if (req.query.userId !== req.user.userId) {
-          return res.status(403).send({ message: 'forbidden access' });
-        }
-        const id = req.params.projectId;
-        const query = { _id: new ObjectId(id) };
-        const result = await projectCollection.deleteOne(query);
-        res.send(result);
+    app.delete('/projects/:projectId', verifyToken, async (req, res) => {
+      if (req.query.userId !== req.user.userId) {
+        return res.status(403).send({ message: 'forbidden access' });
       }
-    );
+      const id = req.params.projectId;
+      const query = { _id: new ObjectId(id) };
+      const result = await projectCollection.deleteOne(query);
+      res.send(result);
+    });
 
     // generate token on authentication
-    app.post('/jwt', logger, async (req, res) => {
+    app.post('/jwt', async (req, res) => {
       const user = req.body;
-      console.log('User email : ', user);
+      console.log('User id : ', user);
       const token = jwt.sign(user, process.env.TOKEN_SECRET, {
-        expiresIn: '1h',
+        expiresIn: '30d',
       });
       res
         .cookie('token', token, {
