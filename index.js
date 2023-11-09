@@ -104,9 +104,6 @@ async function run() {
 
     // get  project data by id
     app.get('/project/:projectId', async (req, res) => {
-      // if (req.query.userId !== req.user.userId) {
-      //   return res.status(403).send({ message: 'forbidden access' });
-      // }
       const projectId = req.params.projectId;
       const query = {
         _id: new ObjectId(projectId),
@@ -114,24 +111,6 @@ async function run() {
       const result = await projectCollection.findOne(query);
       res.send(result);
     });
-
-    // old code
-    // app.get('/project/:projectId', async (req, res) => {
-    //   const projectId = req.params.projectId;
-    //   const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(projectId);
-    //   if (!isValidObjectId) {
-    //     res.status(400).send('Invalid ObjectId');
-    //     return;
-    //   }
-    //   if (req.query.userId !== req.user.userId) {
-    //     return res.status(403).send({ message: 'forbidden access' });
-    //   }
-    //   const query = {
-    //     _id: new ObjectId(projectId),
-    //   };
-    //   const result = await projectCollection.findOne(query);
-    //   res.send(result);
-    // });
 
     // get created project data by specific user email
     app.get('/my-created-project/:userEmail', verifyToken, async (req, res) => {
@@ -146,10 +125,7 @@ async function run() {
     });
 
     // filter data by difficulty and category
-    app.get('/projects/filter', verifyToken, async (req, res) => {
-      if (req.query.userId !== req.user.userId) {
-        return res.status(403).send({ message: 'forbidden access' });
-      }
+    app.get('/projects/filter', async (req, res) => {
       const difficultyFilter = req.query.difficulty;
       const categoryFilter = req.query.category;
 
@@ -175,7 +151,6 @@ async function run() {
 
     // post submitted project data
     app.post('/submitted-projects', async (req, res) => {
-
       const newSubmittedProjectData = req.body;
       console.log(newSubmittedProjectData);
       const result = await submittedProjectCollection.insertOne(
@@ -184,16 +159,9 @@ async function run() {
       console.log(result);
       res.send(result);
     });
-    // get all submitted project data
-    app.get('/submitted-projects', verifyToken, async (req, res) => {
-      const cursor = submittedProjectCollection.find();
-      const result = await cursor.toArray();
-      res.send(result);
-    });
     // get submitted project data by user email
     app.get(
       '/my-submitted-projects/:userEmail',
-      logger,
       verifyToken,
       async (req, res) => {
         if (req.query.userId !== req.user.userId) {
