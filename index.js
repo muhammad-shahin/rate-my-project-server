@@ -114,10 +114,10 @@ async function run() {
 
     // get created project data by specific user email
     app.get('/my-created-project/:userEmail', verifyToken, async (req, res) => {
-      const email = req.params.userEmail;
       if (req.query.userId !== req.user.userId) {
         return res.status(403).send({ message: 'forbidden access' });
       }
+      const email = req.params.userEmail;
       const query = { creatorEmail: email };
       const cursor = projectCollection.find(query);
       const result = await cursor.toArray();
@@ -176,27 +176,22 @@ async function run() {
       }
     );
     // get submitted project data by user email and pending status
-    app.get(
-      '/pending-submit/:userEmail',
-      logger,
-      verifyToken,
-      async (req, res) => {
-        if (req.query.userId !== req.user.userId) {
-          return res.status(403).send({ message: 'forbidden access' });
-        }
-
-        const email = req.params.userEmail;
-        const query = { creatorEmail: email, approveStatus: 'Pending' };
-        try {
-          const cursor = submittedProjectCollection.find(query);
-          const result = await cursor.toArray();
-          res.send(result);
-        } catch (error) {
-          console.error(error);
-          res.status(500).send('Internal Server Error');
-        }
+    app.get('/pending-submit/:userEmail', verifyToken, async (req, res) => {
+      if (req.query.userId !== req.user.userId) {
+        return res.status(403).send({ message: 'forbidden access' });
       }
-    );
+
+      const email = req.params.userEmail;
+      const query = { creatorEmail: email, approveStatus: 'Pending' };
+      try {
+        const cursor = submittedProjectCollection.find(query);
+        const result = await cursor.toArray();
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send('Internal Server Error');
+      }
+    });
 
     // update marks for submitted projects
     app.put('/projects/:projectId', verifyToken, async (req, res) => {
@@ -301,10 +296,20 @@ async function run() {
         .send({ success: true });
     });
 
-    // clear cookie on logout
+    // // clear cookie on logout
+    // app.post('/logout', async (req, res) => {
+    //   const user = req.body;
+    //   res.clearCookie('token', { maxAge: 0 }).send({ success: true });
+    // });
+
+    // api for delete token
     app.post('/logout', async (req, res) => {
-      const user = req.body;
-      res.clearCookie('token', { maxAge: 0 }).send({ success: true });
+      res.clearCookie('token', {
+        maxAge: 0,
+        secure: true,
+        sameSite: 'none',
+      });
+      res.send({ success: true });
     });
 
     // Send a ping to confirm a successful connection
